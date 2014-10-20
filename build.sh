@@ -23,7 +23,7 @@ fi
 
 if cd .. && $JAVA $SBT_OPTIONS -jar sbt-launch.jar dist && cd target
 then
-    cp scala-*/*.jar downloads/es-utils.jar
+    cp es-*.jar downloads/es-utils.jar
 else
     echo 'Failed to build Elasticsearch Remap Tool'
     exit 1
