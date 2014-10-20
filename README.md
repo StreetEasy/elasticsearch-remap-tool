@@ -1,7 +1,7 @@
-Elasticsearch Utility
+Elasticsearch Remap Tool
 =====================
 
-The Elasticsearch Utility enables on-the-fly remappings with no service
+The Elasticsearch Remap Tool enables on-the-fly remappings with no service
 downtime. This is achieved by pushing content from an existing index into a new
 index (to which the new mappings have been applied).
 
