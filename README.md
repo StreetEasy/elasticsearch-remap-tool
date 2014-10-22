@@ -1,68 +1,57 @@
 Elasticsearch Remap Tool
-=====================
+========================
 
-The Elasticsearch Remap Tool enables on-the-fly remappings with no service
-downtime. This is achieved by pushing content from an existing index into a new
-index (to which the new mappings have been applied).
+The Elasticsearch Remap Tool enables on-the-fly remappings with little service downtime. This is achieved by pushing content from an existing index into a new index to which the new mappings have been applied.
+
+This process requires your index to have 'write' and 'read' aliases assigned to it which are used by the producers and consumers of the index.
+
 
 Build
 -----
 
-This is an sbt project. From the es-utils directory, type sbt dist to create a
-target/es_utils.jar file
+Running `build.sh` will produce a `elasticsearch-remap-tool.jar` in the `target` directory.
+
 
 Remapping
 ---------
 
-Note, perform a basic sanity check on the data after steps (1) and (3) before
-moving on.
+You should perform a basic sanity check on the data after steps (1) and (3) before moving on.
 
-Also note, from step 2 onwards, the live API will not pick up new content until
-step 4 is complete. So be as quick as possible!
+Note that from step 2 onwards, the index will not receive new documents until step 4 is complete. So be as quick as possible!
 
-1. Run the `remap` command
-2. Use the `update-alias` command to move the 'content-api-write' alias to the new index
-3. Reindex all for the period since the remapping began (generally the last day)
-4. Use `update-alias` to move the content-api-read alias to the new index
+1. Run `remap`
+2. Use `update-alias` to move the 'write' alias to the new index
+3. Reindex all documents for the period since the remapping began
+4. Use `update-alias` to move the 'read' alias to the new index
+
 
 Commands in detail
 ------------------
 
-To run any command, ssh onto the box. Then:
+To run any command, SSH onto the Elasticsearch machine, then:
 
-    $ cd /home/content-api/utils
-    $ java -jar es-utils.jar [cmd with args]
+    $ java -jar elasticsearch-remap-tool.jar [command with arguments]
 
-### remap
+### `remap`
 
-    remap sourceIdx targetIdx [mappingsFile] [batchSize] [writeTimeOutMillis]
+    remap sourceIndex targetIndex [mappingsFile] [batchSize] [writeTimeOutInMilliseconds]
 
-The batchSize parameter determines the number of documents updated at a time. It
-defaults to 500 and will not accept a value lower than 10.
+The `batchSize` parameter determines the number of documents updated at a time. It defaults to 500 and will not accept a value lower than 10.
 
-The writeTimeOutMillis determines the timeout for index actions against the new
-index. It defaults to 30000 (with a minimum value of 1000). There is no timeout
-applied to reads from the existing index.
+The `writeTimeOutInMilliseconds` parameter determines the timeout for index actions against the new index. It defaults to 30000 (with a minimum value of 1000). There is no timeout applied to reads from the existing index.
 
-Note: You should run remaps via 'screen' so that you can detach from the
-terminal if needed. The PROD index can take 3+ hours to complete.
+You should run remaps in `screen` so that you can detach from the terminal if needed. Depending on the size of your index, it can take hours to complete.
 
-### update-alias
+### `update-alias`
 
-    update-alias sourceIdx targetIdx alias
+    update-alias sourceIndex targetIndex alias
+
 
 Potential pitfalls
 ------------------
 
-Make sure that your source index, target index, and alias all exist.
+Make sure that your source index, target index, and aliases all exist.
 
-If you provide your own mappings.json be careful to make sure it is correct. You
-should probably never pass in a mappings file when remapping on PROD. Instead
-update the default_mapping.json file in a PR and merge it in before performing a
-remap. Elasticsearch will then apply this mapping automatically to any new index
-at creation time.
+If you provide your own `mappings.json` be careful to make sure it is correct. You should probably never pass in a mappings file when remapping. Instead update the `default_mapping.json` file and merge it in before performing a remap. Elasticsearch will then apply this mapping automatically to any new index at creation time.
 
-Lastly, make sure any alias used for insert operations (such as
-`content-api-write`) only points to a single index at a time; ES will not
-process insert operations against an alias with multiple indices.
-
+Lastly, make sure any alias used for insert operations only points to a single index at a time; Elasticsearch will not process insert operations against an alias with multiple indices.
