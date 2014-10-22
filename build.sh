@@ -11,25 +11,12 @@ SBT_OPTIONS="-Xmx1G \
 mkdir target
 cd $(dirname $0)/target
 
-mkdir downloads
-mkdir -p packages/elasticsearch-remap-tool
-
-# concierge
-if [ -z "$JDK_HOME" ]; then
-    JAVA=java
-else
-    JAVA=$JDK_HOME/bin/java 
-fi
-
-if cd .. && $JAVA $SBT_OPTIONS -jar sbt-launch.jar dist && cd target
+if cd .. && java $SBT_OPTIONS -jar sbt-launch.jar assembly && cd target
 then
-    cp es-*.jar downloads/es-utils.jar
+    cp scala-*/*.jar elasticsearch-remap-tool.jar
 else
     echo 'Failed to build Elasticsearch Remap Tool'
     exit 1
 fi
 
-tar czfv packages/elasticsearch-remap-tool/es-utils.tar.gz -C downloads es-utils.jar
-zip -rv artifacts.zip packages/
-
-echo "##teamcity[publishArtifacts '$(pwd)/artifacts.zip => .']"
+echo "##teamcity[publishArtifacts '$(pwd)/elasticsearch-remap-tool.jar => .']"
