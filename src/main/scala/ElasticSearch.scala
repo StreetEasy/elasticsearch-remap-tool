@@ -1,20 +1,20 @@
+import scala.util.{Try, Failure}
 import scala.collection.JavaConverters._
+import com.typesafe.scalalogging.slf4j.Logging
 import org.elasticsearch.client.transport.TransportClient
-import org.elasticsearch.client.Client
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport._
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
-import com.typesafe.scalalogging.slf4j.Logging
-import org.json4s._
-import org.json4s.jackson.JsonMethods._
 import org.elasticsearch.action.admin.indices.flush.FlushRequest
-import scala.util.{Failure, Try}
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesResponse
+import org.json4s.DefaultFormats
+import org.json4s.JsonAST.JValue
+import org.json4s.jackson.JsonMethods
 
-object ElasticSearch extends Logging {
+object Elasticsearch extends Logging {
 
-  protected implicit val jsonFormats: Formats = DefaultFormats
+  protected implicit val jsonFormats = DefaultFormats
 
   val hostName = "localhost"
 
@@ -23,24 +23,21 @@ object ElasticSearch extends Logging {
     .put("client.transport.sniff", true)
     .build()
 
-  lazy val client : Client = new TransportClient(settings)
-    .addTransportAddress(new InetSocketTransportAddress(hostName, 9300))
+  lazy val client = new TransportClient(settings).addTransportAddress(new InetSocketTransportAddress(hostName, 9300))
 
-  def indexExists(indexName: String) =
-    client.admin.indices.prepareExists(indexName).execute.actionGet.isExists
+  def indexExists(indexName: String) = client.admin.indices.prepareExists(indexName).execute.actionGet.isExists
 
   def createIndex(indexName: String, mappings: Option[JValue]) {
-    logger.info(s"creating index: $indexName")
+    logger.info(s"Creating index: $indexName")
 
-    val index = client.admin.indices
-      .prepareCreate(indexName)
+    val index = client.admin.indices.prepareCreate(indexName)
 
     mappings foreach { m =>
-      val contentMappings = compact(render(m \ "content-mappings"))
-      val tagMappings = compact(render(m \ "tag-mappings"))
-      val sectionMappings = compact(render(m \ "section-mappings"))
-      val networkFrontMappings = compact(render(m \ "network-front-mappings"))
-      val storyPackageMappings = compact(render(m \ "story-package-mappings"))
+      val contentMappings = JsonMethods.compact(m \ "content-mappings")
+      val tagMappings = JsonMethods.compact(m \ "tag-mappings")
+      val sectionMappings = JsonMethods.compact(m \ "section-mappings")
+      val networkFrontMappings = JsonMethods.compact(m \ "network-front-mappings")
+      val storyPackageMappings = JsonMethods.compact(m \ "story-package-mappings")
 
       index
         .addMapping("content", contentMappings)
@@ -54,22 +51,21 @@ object ElasticSearch extends Logging {
   }
 
   def createAlias(alias: String, indexName: String) {
-    logger.info(s"adding alias: $alias")
-    client.admin.indices
-      .prepareAliases().addAlias(indexName, alias).execute().actionGet()
+    logger.info(s"Adding alias: $alias")
+    client.admin.indices.prepareAliases().addAlias(indexName, alias).execute().actionGet()
   }
 
-  def migrate(fromIndex: String,
-              toIndex:String,
-              batchSize: Int,
-              writeTimeOut: Long): Boolean = {
+  def migrate(
+      fromIndex: String,
+      toIndex:String,
+      batchSize: Int,
+      writeTimeOut: Long): Boolean = {
 
-    logger.info(s"migrating data from $fromIndex to $toIndex (batch size: $batchSize write timeout: $writeTimeOut)")
+    logger.info(s"Migrating data from $fromIndex to $toIndex (batch size: $batchSize write timeout: $writeTimeOut)")
 
-    val scrollTime = new TimeValue(60 * 1000 * 5)  //setting to 5 minutes
+    val scrollTime = new TimeValue(60 * 1000 * 5) //setting to 5 minutes
 
     val query = client.prepareSearch(fromIndex)
-      //.setSearchType(SearchType.SCAN)
       .setScroll(scrollTime)
       .setQuery(QueryBuilders.matchAllQuery())
       .setSize(batchSize)
@@ -80,7 +76,7 @@ object ElasticSearch extends Logging {
     var recordsCopied = 0
 
     while(scrollResp.getHits.asScala.nonEmpty) {
-      logger.info("bulk updating")
+      logger.info("Bulk updating")
       try {
         val bulkRequest = client.prepareBulk()
 
@@ -90,7 +86,7 @@ object ElasticSearch extends Logging {
 
         val payloadCount = bulkRequest.numberOfActions()
 
-        logger.info(s"prepared ${payloadCount.toString} updates")
+        logger.info(s"Prepared ${payloadCount.toString} updates")
 
         val result = bulkRequest.execute().actionGet(writeTimeOut)
 
@@ -98,11 +94,10 @@ object ElasticSearch extends Logging {
           logger.error(s"${result.buildFailureMessage()}")
         } else {
           recordsCopied += payloadCount
-          logger.info(s"copied $payloadCount records ($recordsCopied of $recordsToCopy completed)")
+          logger.info(s"Copied $payloadCount records ($recordsCopied of $recordsToCopy completed)")
         }
 
-        scrollResp = client.prepareSearchScroll(scrollResp.getScrollId)
-          .setScroll(scrollTime).execute().actionGet()
+        scrollResp = client.prepareSearchScroll(scrollResp.getScrollId).setScroll(scrollTime).execute().actionGet()
 
         var errTimes = 0
         while (scrollResp.status().getStatus != 200 && errTimes < 100) {
@@ -117,10 +112,10 @@ object ElasticSearch extends Logging {
           }
         }
 
-        logger.info(s"next batch request result code: ${scrollResp.status().getStatus}")
+        logger.info(s"Next batch request result code: ${scrollResp.status().getStatus}")
 
         if (errTimes > 0) {
-          logger.error("could not recover from error condition - aborting")
+          logger.error("Could not recover from error condition - aborting")
           sys.exit()
         }
 
@@ -129,16 +124,16 @@ object ElasticSearch extends Logging {
       }
     }
 
-    logger.info("flushing...")
+    logger.info("Flushing...")
     Thread.sleep(writeTimeOut)
     try {
       val flusher = new FlushRequest(toIndex)
-      client.admin().indices().flush(flusher).actionGet(writeTimeOut.max(5000))   // allow at least five seconds here
+      client.admin().indices().flush(flusher).actionGet(writeTimeOut.max(5000)) // allow at least five seconds here
     } catch {
-      case e: Exception => logger.warn("flush did not complete or may have timed out - you can do this manually if needed")
+      case e: Exception => logger.warn("Flush did not complete or may have timed out - you can do this manually if needed")
     }
 
-    logger.info("settling...")
+    logger.info("Settling...")
     Thread.sleep(writeTimeOut)
 
     testRecordCount(fromIndex, toIndex)
@@ -158,7 +153,7 @@ object ElasticSearch extends Logging {
     }
   }
 
-  private def testRecordCount(fromIndex: String, toIndex: String) = {
+  def testRecordCount(fromIndex: String, toIndex: String) = {
     val from = client.prepareSearch(fromIndex).setQuery(QueryBuilders.matchAllQuery()).execute().actionGet().getHits.totalHits()
     val to = client.prepareSearch(toIndex).setQuery(QueryBuilders.matchAllQuery()).execute().actionGet().getHits.totalHits()
 
@@ -168,4 +163,5 @@ object ElasticSearch extends Logging {
 
     from == to
   }
+
 }
