@@ -1,6 +1,3 @@
-
-package com.gu.esutils
-
 import scala.collection.JavaConverters._
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.client.Client

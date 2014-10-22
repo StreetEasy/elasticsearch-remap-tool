@@ -1,5 +1,5 @@
 import com.typesafe.scalalogging.slf4j.Logging
-import com.gu.esutils.ElasticSearch._
+import ElasticSearch._
 import org.elasticsearch.indices.InvalidAliasNameException
 import org.json4s.jackson.JsonMethods._
 import org.json4s.JsonAST.JValue
