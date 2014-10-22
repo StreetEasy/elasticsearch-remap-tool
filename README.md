@@ -32,6 +32,8 @@ To run any command, SSH onto the Elasticsearch machine, then:
 
     $ java -jar elasticsearch-remap-tool.jar [command with arguments]
 
+The command and arguments can be:
+
 ### `remap`
 
     remap sourceIndex targetIndex [mappingsFile] [batchSize] [writeTimeOutInMilliseconds]
