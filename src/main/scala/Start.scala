@@ -1,12 +1,11 @@
-import com.typesafe.scalalogging.slf4j.Logging
-import com.gu.esutils.ElasticSearch._
-import org.elasticsearch.indices.InvalidAliasNameException
-import org.json4s.jackson.JsonMethods._
-import org.json4s.JsonAST.JValue
-import scala.io.Source._
 import scala.util.{Try, Success, Failure}
+import scala.io.Source
+import com.typesafe.scalalogging.slf4j.Logging
+import org.elasticsearch.indices.InvalidAliasNameException
+import org.json4s.jackson.JsonMethods
+import org.json4s.JsonAST.JValue
 
-object Main extends App with Logging {
+object Start extends App with Logging {
 
   try {
     val action = args(0)
@@ -19,22 +18,18 @@ object Main extends App with Logging {
         val batchSize: Int = Try(args(4).toInt.max(10)) getOrElse 500
         val writeTimeOut: Long = Try(args(5).toLong.max(1000)) getOrElse 30000
 
-        Utils.remap(oldIndex, newIndex, mapping, batchSize, writeTimeOut)
+        remap(oldIndex, newIndex, mapping, batchSize, writeTimeOut)
       }
       case "update-alias" => {
         val alias = args(3)
-        Utils.updateAlias(alias, oldIndex, newIndex)
+        updateAlias(alias, oldIndex, newIndex)
       }
       case _ => logger.info(s"$action is not a recognised action")
     }
-  } catch {
-    case e: ArrayIndexOutOfBoundsException => {
-      logger.info("An expected argument was missing. See the README for correct usage.")
-    }
   }
-}
-
-object Utils extends Logging {
+  catch {
+    case e: ArrayIndexOutOfBoundsException => logger.info("An expected argument was missing. See the README for correct usage.")
+  }
 
   def remap(oldIndex: String,
          newIndex: String,
@@ -42,19 +37,19 @@ object Utils extends Logging {
          batchSize: Int,
          writeTimeOut: Long) {
 
-    if (!indexExists(oldIndex)) {
+    if (!Elasticsearch.indexExists(oldIndex)) {
       logger.error("Source index does not exist - migration failed")
     }
 
-    if (!indexExists(newIndex)) {
+    if (!Elasticsearch.indexExists(newIndex)) {
       logger.info("Loading mappings...")
       val mappings = mappingsSource map (m => loadJsonFromFile(m))
 
       logger.info(s"Creating index $newIndex...")
-      createIndex(newIndex, mappings)
+      Elasticsearch.createIndex(newIndex, mappings)
 
       logger.info(s"Attempting to migrate data from $oldIndex to $newIndex")
-      if (migrate(oldIndex, newIndex, batchSize, writeTimeOut)) {
+      if (Elasticsearch.migrate(oldIndex, newIndex, batchSize, writeTimeOut)) {
         logger.info("Migration complete! Check the results and update aliases as required")
       } else {
         logger.info("Failed (or nothing to do)")
@@ -63,13 +58,13 @@ object Utils extends Logging {
       logger.error("Target index already exists - migration failed")
     }
 
-    closeConnection()
+    Elasticsearch.closeConnection()
   }
 
   def updateAlias(alias: String, oldIndex: String, newIndex: String) {
     logger.info(s"Attempting to update alias: $alias from $oldIndex")
 
-    moveAlias(alias, oldIndex, newIndex) match {
+    Elasticsearch.moveAlias(alias, oldIndex, newIndex) match {
       case Success(_) => logger.info(s"Alias $alias has been moved from $oldIndex to $newIndex")
       case Failure(e) => e match {
         case _: IllegalArgumentException => logger.error(s"Index $oldIndex and/or $newIndex does not exist: cannot move the alias $alias")
@@ -79,5 +74,6 @@ object Utils extends Logging {
     }
   }
 
-  def loadJsonFromFile(source: String): JValue = parse(fromFile(source).mkString)
+  def loadJsonFromFile(source: String): JValue = JsonMethods.parse(Source.fromFile(source).mkString)
+
 }
