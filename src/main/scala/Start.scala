@@ -14,11 +14,9 @@ object Start extends App with Logging {
 
     action.toLowerCase match {
       case "remap" => {
-        val mapping = Try(args(3)).toOption
-        val batchSize: Int = Try(args(4).toInt.max(10)) getOrElse 500
-        val writeTimeOut: Long = Try(args(5).toLong.max(1000)) getOrElse 30000
-
-        remap(oldIndex, newIndex, mapping, batchSize, writeTimeOut)
+        val batchSize: Int = Try(args(3).toInt.max(10)) getOrElse 500
+        val writeTimeOut: Long = Try(args(4).toLong.max(1000)) getOrElse 30000
+        remap(oldIndex, newIndex, batchSize, writeTimeOut)
       }
       case "update-alias" => {
         val alias = args(3)
@@ -33,7 +31,6 @@ object Start extends App with Logging {
 
   def remap(oldIndex: String,
          newIndex: String,
-         mappingsSource: Option[String],
          batchSize: Int,
          writeTimeOut: Long) {
 
@@ -42,11 +39,8 @@ object Start extends App with Logging {
     }
 
     if (!Elasticsearch.indexExists(newIndex)) {
-      logger.info("Loading mappings...")
-      val mappings = mappingsSource map (m => loadJsonFromFile(m))
-
       logger.info(s"Creating index $newIndex...")
-      Elasticsearch.createIndex(newIndex, mappings)
+      Elasticsearch.createIndex(newIndex)
 
       logger.info(s"Attempting to migrate data from $oldIndex to $newIndex")
       if (Elasticsearch.migrate(oldIndex, newIndex, batchSize, writeTimeOut)) {

@@ -36,7 +36,7 @@ The command and arguments can be:
 
 ### `remap`
 
-    remap sourceIndex targetIndex [mappingsFile] [batchSize] [writeTimeOutInMilliseconds]
+    remap sourceIndex targetIndex [batchSize] [writeTimeOutInMilliseconds]
 
 The `batchSize` parameter determines the number of documents updated at a time. It defaults to 500 and will not accept a value lower than 10.
 

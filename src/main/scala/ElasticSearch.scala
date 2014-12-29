@@ -27,25 +27,10 @@ object Elasticsearch extends Logging {
 
   def indexExists(indexName: String) = client.admin.indices.prepareExists(indexName).execute.actionGet.isExists
 
-  def createIndex(indexName: String, mappings: Option[JValue]) {
+  def createIndex(indexName: String) {
     logger.info(s"Creating index: $indexName")
 
     val index = client.admin.indices.prepareCreate(indexName)
-
-    mappings foreach { m =>
-      val contentMappings = JsonMethods.compact(m \ "content-mappings")
-      val tagMappings = JsonMethods.compact(m \ "tag-mappings")
-      val sectionMappings = JsonMethods.compact(m \ "section-mappings")
-      val networkFrontMappings = JsonMethods.compact(m \ "network-front-mappings")
-      val storyPackageMappings = JsonMethods.compact(m \ "story-package-mappings")
-
-      index
-        .addMapping("content", contentMappings)
-        .addMapping("tag", tagMappings)
-        .addMapping("section", sectionMappings)
-        .addMapping("network-front", networkFrontMappings)
-        .addMapping("story-package", storyPackageMappings)
-    }
 
     index.execute.actionGet
   }
