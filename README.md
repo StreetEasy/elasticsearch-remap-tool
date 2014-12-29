@@ -36,7 +36,7 @@ The command and arguments can be:
 
 ### `remap`
 
-    remap sourceIndex targetIndex [batchSize] [writeTimeOutInMilliseconds]
+    remap clusterName sourceIndex targetIndex [batchSize] [writeTimeOutInMilliseconds]
 
 The `batchSize` parameter determines the number of documents updated at a time. It defaults to 500 and will not accept a value lower than 10.
 
@@ -46,7 +46,7 @@ You should run remaps in `screen` so that you can detach from the terminal if ne
 
 ### `update-alias`
 
-    update-alias sourceIndex targetIndex alias
+    update-alias clusterName sourceIndex targetIndex alias
 
 
 Potential pitfalls
