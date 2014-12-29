@@ -29,11 +29,7 @@ object Start extends App with Logging {
     case e: ArrayIndexOutOfBoundsException => logger.info("An expected argument was missing. See the README for correct usage.")
   }
 
-  def remap(oldIndex: String,
-         newIndex: String,
-         batchSize: Int,
-         writeTimeOut: Long) {
-
+  def remap(oldIndex: String, newIndex: String, batchSize: Int, writeTimeOut: Long): Unit = {
     if (!Elasticsearch.indexExists(oldIndex)) {
       logger.error("Source index does not exist - migration failed")
     }
@@ -55,7 +51,7 @@ object Start extends App with Logging {
     Elasticsearch.closeConnection()
   }
 
-  def updateAlias(alias: String, oldIndex: String, newIndex: String) {
+  def updateAlias(alias: String, oldIndex: String, newIndex: String): Unit = {
     logger.info(s"Attempting to update alias: $alias from $oldIndex")
 
     Elasticsearch.moveAlias(alias, oldIndex, newIndex) match {
@@ -67,7 +63,5 @@ object Start extends App with Logging {
       }
     }
   }
-
-  def loadJsonFromFile(source: String): JValue = JsonMethods.parse(Source.fromFile(source).mkString)
 
 }
