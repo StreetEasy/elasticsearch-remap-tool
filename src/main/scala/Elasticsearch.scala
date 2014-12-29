@@ -10,20 +10,21 @@ import org.elasticsearch.action.admin.indices.flush.FlushRequest
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesResponse
 import org.json4s.DefaultFormats
 
-object Elasticsearch extends Logging {
+class Elasticsearch(clusterName: String) extends Logging {
 
   implicit val jsonFormats = DefaultFormats
 
-  val hostName = "localhost"
+  val client = {
+    val options = Map(
+      "cluster.name" -> clusterName,
+      "client.transport.sniff" -> true
+    )
+    val settings = ImmutableSettings.builder().put(options).build()
+    val address = new InetSocketTransportAddress("localhost", 9300)
+    new TransportClient(settings).addTransportAddress(address)
+  }
 
-  val settings = ImmutableSettings.settingsBuilder()
-    .put("cluster.name", "content-api")
-    .put("client.transport.sniff", true)
-    .build()
-
-  val client = new TransportClient(settings).addTransportAddress(new InetSocketTransportAddress(hostName, 9300))
-
-  def indexExists(indexName: String) = {
+  def indexExists(indexName: String): Boolean = {
     client.admin.indices.prepareExists(indexName).execute().actionGet().isExists
   }
 
@@ -32,7 +33,7 @@ object Elasticsearch extends Logging {
     client.admin.indices.prepareCreate(indexName).execute().actionGet()
   }
 
-  def migrate(fromIndex: String, toIndex: String, batchSize: Int, writeTimeOut: Long): Boolean = {
+  def migrate(fromIndex: String, toIndex: String, batchSize: Int, writeTimeOut: Int): Boolean = {
     logger.info(s"Migrating data from $fromIndex to $toIndex (batch size: $batchSize write timeout: $writeTimeOut)")
 
     val scrollTime = new TimeValue(60 * 1000 * 5) //setting to 5 minutes
@@ -115,7 +116,7 @@ object Elasticsearch extends Logging {
     client.close()
   }
 
-  def moveAlias(alias: String, fromIndex: String, toIndex: String): Try[IndicesAliasesResponse] = {
+  def moveAlias(fromIndex: String, toIndex: String, alias: String): Try[IndicesAliasesResponse] = {
     if (indexExists(fromIndex) && indexExists(toIndex)) {
       Try {
         client.admin.indices.prepareAliases().addAlias(toIndex, alias).removeAlias(fromIndex, alias).execute().actionGet(5000)
