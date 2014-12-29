@@ -23,17 +23,16 @@ object Elasticsearch extends Logging {
 
   val client = new TransportClient(settings).addTransportAddress(new InetSocketTransportAddress(hostName, 9300))
 
-  def indexExists(indexName: String) = client.admin.indices.prepareExists(indexName).execute.actionGet.isExists
+  def indexExists(indexName: String) = {
+    client.admin.indices.prepareExists(indexName).execute().actionGet().isExists
+  }
 
   def createIndex(indexName: String): Unit = {
     logger.info(s"Creating index: $indexName")
-
-    val index = client.admin.indices.prepareCreate(indexName)
-
-    index.execute.actionGet
+    client.admin.indices.prepareCreate(indexName).execute().actionGet()
   }
 
-  def migrate(fromIndex: String, toIndex:String, batchSize: Int, writeTimeOut: Long): Boolean = {
+  def migrate(fromIndex: String, toIndex: String, batchSize: Int, writeTimeOut: Long): Boolean = {
     logger.info(s"Migrating data from $fromIndex to $toIndex (batch size: $batchSize write timeout: $writeTimeOut)")
 
     val scrollTime = new TimeValue(60 * 1000 * 5) //setting to 5 minutes
