@@ -9,58 +9,31 @@ import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.action.admin.indices.flush.FlushRequest
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesResponse
 import org.json4s.DefaultFormats
-import org.json4s.JsonAST.JValue
-import org.json4s.jackson.JsonMethods
 
-object Elasticsearch extends Logging {
+class Elasticsearch(clusterName: String) extends Logging {
 
-  protected implicit val jsonFormats = DefaultFormats
+  implicit val jsonFormats = DefaultFormats
 
-  val hostName = "localhost"
+  val client = {
+    val options = Map(
+      "cluster.name" -> clusterName,
+      "client.transport.sniff" -> true
+    )
+    val settings = ImmutableSettings.builder().put(options).build()
+    val address = new InetSocketTransportAddress("localhost", 9300)
+    new TransportClient(settings).addTransportAddress(address)
+  }
 
-  private lazy val settings = ImmutableSettings.settingsBuilder()
-    .put("cluster.name", "content-api")
-    .put("client.transport.sniff", true)
-    .build()
+  def indexExists(indexName: String): Boolean = {
+    client.admin.indices.prepareExists(indexName).execute().actionGet().isExists
+  }
 
-  lazy val client = new TransportClient(settings).addTransportAddress(new InetSocketTransportAddress(hostName, 9300))
-
-  def indexExists(indexName: String) = client.admin.indices.prepareExists(indexName).execute.actionGet.isExists
-
-  def createIndex(indexName: String, mappings: Option[JValue]) {
+  def createIndex(indexName: String): Unit = {
     logger.info(s"Creating index: $indexName")
-
-    val index = client.admin.indices.prepareCreate(indexName)
-
-    mappings foreach { m =>
-      val contentMappings = JsonMethods.compact(m \ "content-mappings")
-      val tagMappings = JsonMethods.compact(m \ "tag-mappings")
-      val sectionMappings = JsonMethods.compact(m \ "section-mappings")
-      val networkFrontMappings = JsonMethods.compact(m \ "network-front-mappings")
-      val storyPackageMappings = JsonMethods.compact(m \ "story-package-mappings")
-
-      index
-        .addMapping("content", contentMappings)
-        .addMapping("tag", tagMappings)
-        .addMapping("section", sectionMappings)
-        .addMapping("network-front", networkFrontMappings)
-        .addMapping("story-package", storyPackageMappings)
-    }
-
-    index.execute.actionGet
+    client.admin.indices.prepareCreate(indexName).execute().actionGet()
   }
 
-  def createAlias(alias: String, indexName: String) {
-    logger.info(s"Adding alias: $alias")
-    client.admin.indices.prepareAliases().addAlias(indexName, alias).execute().actionGet()
-  }
-
-  def migrate(
-      fromIndex: String,
-      toIndex:String,
-      batchSize: Int,
-      writeTimeOut: Long): Boolean = {
-
+  def migrate(fromIndex: String, toIndex: String, batchSize: Int, writeTimeOut: Int): Boolean = {
     logger.info(s"Migrating data from $fromIndex to $toIndex (batch size: $batchSize write timeout: $writeTimeOut)")
 
     val scrollTime = new TimeValue(60 * 1000 * 5) //setting to 5 minutes
@@ -139,11 +112,11 @@ object Elasticsearch extends Logging {
     testRecordCount(fromIndex, toIndex)
   }
 
-  def closeConnection() {
+  def closeConnection(): Unit = {
     client.close()
   }
 
-  def moveAlias(alias: String, fromIndex: String, toIndex: String): Try[IndicesAliasesResponse] = {
+  def moveAlias(fromIndex: String, toIndex: String, alias: String): Try[IndicesAliasesResponse] = {
     if (indexExists(fromIndex) && indexExists(toIndex)) {
       Try {
         client.admin.indices.prepareAliases().addAlias(toIndex, alias).removeAlias(fromIndex, alias).execute().actionGet(5000)
@@ -153,7 +126,7 @@ object Elasticsearch extends Logging {
     }
   }
 
-  def testRecordCount(fromIndex: String, toIndex: String) = {
+  def testRecordCount(fromIndex: String, toIndex: String): Boolean = {
     val from = client.prepareSearch(fromIndex).setQuery(QueryBuilders.matchAllQuery()).execute().actionGet().getHits.totalHits()
     val to = client.prepareSearch(toIndex).setQuery(QueryBuilders.matchAllQuery()).execute().actionGet().getHits.totalHits()
 
