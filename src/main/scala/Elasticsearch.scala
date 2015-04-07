@@ -15,10 +15,12 @@ class Elasticsearch(clusterName: String) extends Logging {
   implicit val jsonFormats = DefaultFormats
 
   val client = {
+    /*
     val options = Map(
       "cluster.name" -> clusterName,
       "client.transport.sniff" -> true
     )
+    */
     val settings = ImmutableSettings.builder().put("cluster.name", clusterName).put("client.transport.sniff", "true").build()
     val address = new InetSocketTransportAddress("localhost", 9300)
     new TransportClient(settings).addTransportAddress(address)
