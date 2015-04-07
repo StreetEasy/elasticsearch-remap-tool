@@ -52,7 +52,7 @@ You should run remaps in `screen` so that you can detach from the terminal if ne
 Potential pitfalls
 ------------------
 
-Make sure that your source index, target index, and aliases all exist.
+Make sure that your source index exists.  If your target index exists, the program will exit (in contrast to the official docs)
 
 If you provide your own `mappings.json` be careful to make sure it is correct. You should probably never pass in a mappings file when remapping. Instead update the `default_mapping.json` file and merge it in before performing a remap. Elasticsearch will then apply this mapping automatically to any new index at creation time.
 
